@@ -3,21 +3,21 @@ import { Facebook, Twitter, Instagram, Linkedin, Mail } from 'lucide-react';
 
 export const DashboardFooter = () => {
     return (
-        <footer className="bg-[#0B2E24] pt-8 pb-10 overflow-hidden relative">
+        <footer className="bg-[#0B2E24] pt-4 pb-6 overflow-hidden relative">
             {/* Decorative background element */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
             <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-20 mb-16">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12 mb-8">
                     {/* Brand Section */}
                     <div className="lg:col-span-4">
-                        <div className="flex items-center gap-3 mb-8">
+                        <div className="flex items-center gap-3 mb-4">
                             <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/10 shadow-lg">
                                 <img src="/logo.png" alt="Nirvaha" className="w-8 h-8 opacity-90" />
                             </div>
                             <span className="text-2xl font-bold text-white tracking-widest" style={{ fontFamily: "'Cinzel', serif" }}>NIRVAHA</span>
                         </div>
-                        <p className="text-emerald-100/60 text-lg leading-relaxed mb-8 max-w-sm">
+                        <p className="text-emerald-100/60 text-lg leading-relaxed mb-4 max-w-sm">
                             Bridging ancient wisdom and modern science to create a digital sanctuary for the modern mind.
                         </p>
                         <div className="flex gap-4">
@@ -31,7 +31,7 @@ export const DashboardFooter = () => {
 
                     {/* Navigation Columns */}
                     <div className="lg:col-span-2">
-                        <h4 className="font-bold text-white text-lg mb-8 uppercase tracking-widest">Platform</h4>
+                        <h4 className="font-bold text-white text-lg mb-4 uppercase tracking-widest">Platform</h4>
                         <ul className="space-y-4 text-emerald-100/50">
                             <li className="hover:text-white transition-colors cursor-pointer flex items-center gap-2 group">
                                 <span className="w-1 h-1 bg-emerald-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
@@ -53,7 +53,7 @@ export const DashboardFooter = () => {
                     </div>
 
                     <div className="lg:col-span-2">
-                        <h4 className="font-bold text-white text-lg mb-8 uppercase tracking-widest">Company</h4>
+                        <h4 className="font-bold text-white text-lg mb-4 uppercase tracking-widest">Company</h4>
                         <ul className="space-y-4 text-emerald-100/50">
                             <li className="hover:text-white transition-colors cursor-pointer flex items-center gap-2 group">
                                 <span className="w-1 h-1 bg-emerald-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></span>
@@ -76,8 +76,8 @@ export const DashboardFooter = () => {
 
                     {/* Subscription Section */}
                     <div className="lg:col-span-4">
-                        <h4 className="font-bold text-white text-lg mb-8 uppercase tracking-widest">Stay Inspired</h4>
-                        <p className="text-emerald-100/50 mb-6 text-sm">Join our newsletter for weekly doses of wisdom and peace.</p>
+                        <h4 className="font-bold text-white text-lg mb-4 uppercase tracking-widest">Stay Inspired</h4>
+                        <p className="text-emerald-100/50 mb-3 text-sm">Join our newsletter for weekly doses of wisdom and peace.</p>
                         <div className="flex p-1 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm focus-within:border-emerald-500/50 transition-all">
                             <input
                                 type="email"
@@ -91,7 +91,7 @@ export const DashboardFooter = () => {
                     </div>
                 </div>
 
-                <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
                     <p className="text-emerald-100/30 text-xs tracking-widest uppercase">
                         © 2026 Nirvaha Inc. Crafted with Peace.
                     </p>

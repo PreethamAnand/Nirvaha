@@ -28,14 +28,14 @@ export function AdminTable<T extends Record<string, any>>({
   emptyMessage = "No data available",
 }: AdminTableProps<T>) {
   return (
-    <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-md overflow-hidden">
+    <div className="rounded-lg border border-emerald-200 bg-white overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="hover:bg-white/5 border-white/20">
+          <TableRow className="hover:bg-gray-50 border-emerald-200">
             {columns.map((column) => (
               <TableHead
                 key={column.key}
-                className={`text-white/90 font-semibold ${column.className || ""}`}
+                className={`text-gray-900 font-semibold ${column.className || ""}`}
               >
                 {column.header}
               </TableHead>
@@ -47,7 +47,7 @@ export function AdminTable<T extends Record<string, any>>({
             <TableRow>
               <TableCell
                 colSpan={columns.length}
-                className="text-center text-white/70 py-8"
+                className="text-center text-gray-600 py-8"
               >
                 {emptyMessage}
               </TableCell>
@@ -57,14 +57,14 @@ export function AdminTable<T extends Record<string, any>>({
               <TableRow
                 key={index}
                 onClick={() => onRowClick?.(item)}
-                className={`hover:bg-white/10 border-white/20 transition-colors ${
+                className={`hover:bg-emerald-50 border-emerald-200 transition-colors ${
                   onRowClick ? "cursor-pointer" : ""
                 }`}
               >
                 {columns.map((column) => (
                   <TableCell
                     key={column.key}
-                    className={`text-white/80 ${column.className || ""}`}
+                    className={`text-gray-700 ${column.className || ""}`}
                   >
                     {column.render
                       ? column.render(item)
