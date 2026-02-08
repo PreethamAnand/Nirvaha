@@ -15,16 +15,80 @@ import {
   CalendarRange,
   Plus,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AddItemModal from "../marketplace/AddItemModal";
+import { useAuth } from "@/contexts/AuthContext";
+
+type MarketplaceRequest = {
+  id: string;
+  type: "session" | "retreat" | "product";
+  status: "pending" | "approved";
+  data: any;
+  createdAt: number;
+};
+
+const MARKETPLACE_REQUESTS_KEY = "nirvaha_marketplace_requests";
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=600";
 
 export function MarketplacePage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [activeTab, setActiveTab] =
     useState<"sessions" | "retreats" | "products">("sessions");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedAddType, setSelectedAddType] = useState<
     "session" | "retreat" | "product"
   >("session");
+  const [requests, setRequests] = useState<MarketplaceRequest[]>([]);
+
+  const loadRequests = () => {
+    try {
+      const raw = localStorage.getItem(MARKETPLACE_REQUESTS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setRequests(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setRequests([]);
+    }
+  };
+
+  const saveRequests = (next: MarketplaceRequest[]) => {
+    setRequests(next);
+    try {
+      localStorage.setItem(MARKETPLACE_REQUESTS_KEY, JSON.stringify(next));
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  useEffect(() => {
+    loadRequests();
+
+    const handleStorage = () => loadRequests();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const handleRequestSubmit = (formData: any, type: "session" | "retreat" | "product") => {
+    const newRequest: MarketplaceRequest = {
+      id: crypto.randomUUID?.() || `${Date.now()}`,
+      type,
+      status: "pending",
+      data: formData,
+      createdAt: Date.now(),
+    };
+    saveRequests([newRequest, ...requests]);
+  };
+
+  const approveRequest = (id: string) => {
+    const next = requests.map((item) =>
+      item.id === id ? { ...item, status: "approved" } : item
+    );
+    saveRequests(next);
+  };
+
+  const deleteRequest = (id: string) => {
+    saveRequests(requests.filter((item) => item.id !== id));
+  };
 
   const sessions = [
     {
@@ -245,6 +309,63 @@ export function MarketplacePage() {
     },
   ];
 
+  const approvedRequests = requests.filter((item) => item.status === "approved");
+  const pendingRequests = requests.filter((item) => item.status === "pending");
+
+  const requestSessions = approvedRequests
+    .filter((item) => item.type === "session")
+    .map((item) => ({
+      title: item.data.title || "New Session",
+      host: item.data.host || "Host",
+      schedule:
+        item.data.startDate && item.data.startTime
+          ? `${item.data.startDate} · ${item.data.startTime}`
+          : "Schedule TBD",
+      duration: item.data.duration ? `${item.data.duration} min` : "Duration TBD",
+      attendees: "New",
+      rating: 0,
+      price: item.data.isPaid ? `$${item.data.price}` : "Free",
+      image: item.data.image || FALLBACK_IMAGE,
+      color: "from-emerald-400 to-teal-500",
+      topics: [item.data.platform, item.data.timeZone, "New"]
+        .filter(Boolean)
+        .slice(0, 3),
+    }));
+
+  const requestRetreats = approvedRequests
+    .filter((item) => item.type === "retreat")
+    .map((item) => ({
+      title: item.data.title || "New Retreat",
+      guide: item.data.facilitator || "Facilitator",
+      location: item.data.location || "Location TBD",
+      dates:
+        item.data.startDate && item.data.endDate
+          ? `${item.data.startDate} - ${item.data.endDate}`
+          : "Dates TBD",
+      capacity: item.data.capacity ? `${item.data.capacity} seats` : "Capacity TBD",
+      rating: 0,
+      price: item.data.isPaid ? `$${item.data.price}` : "Free",
+      image: FALLBACK_IMAGE,
+      color: "from-amber-400 to-orange-500",
+      highlights: [item.data.accommodation, item.data.pricingTier, "New"]
+        .filter(Boolean)
+        .slice(0, 3),
+    }));
+
+  const requestProducts = approvedRequests
+    .filter((item) => item.type === "product")
+    .map((item) => ({
+      name: item.data.name || "New Product",
+      description: item.data.description || "Description coming soon.",
+      price: item.data.price ? `$${item.data.price}` : "Price TBD",
+      rating: 0,
+      reviews: 0,
+      image: (item.data.images || "").split(",")[0]?.trim() || FALLBACK_IMAGE,
+      category: item.data.category || "Other",
+      color: "from-purple-400 to-pink-500",
+      inStock: item.data.stockAvailability !== "Out of Stock",
+    }));
+
   return (
     <div className="min-h-screen pt-24 pb-16 bg-gradient-to-br from-[#fdfcfb] via-[#f8f7f4] to-[#f5f4f1] text-slate-900">
       <div className="max-w-screen-2xl mx-auto px-4 md:px-6">
@@ -351,10 +472,48 @@ export function MarketplacePage() {
           </div>
         </motion.div>
 
+        {isAdmin && pendingRequests.length > 0 && (
+          <div className="mb-10 rounded-[28px] border border-amber-200/60 bg-white/90 backdrop-blur-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-teal-800">Marketplace Requests</h3>
+              <span className="text-sm text-teal-600">Pending approvals</span>
+            </div>
+            <div className="space-y-3">
+              {pendingRequests.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/60 p-4"
+                >
+                  <div>
+                    <p className="text-sm text-amber-700 uppercase tracking-wide">{item.type}</p>
+                    <p className="text-teal-800 font-semibold">
+                      {item.data.title || item.data.name || "Untitled request"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => approveRequest(item.id)}
+                      className="px-4 py-2 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => deleteRequest(item.id)}
+                      className="px-4 py-2 rounded-full bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Sessions Grid */}
         {activeTab === "sessions" && (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {sessions.map((session, i) => (
+            {[...requestSessions, ...sessions].map((session, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 30 }}
@@ -455,7 +614,7 @@ export function MarketplacePage() {
         {/* Retreats Grid */}
         {activeTab === "retreats" && (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {retreats.map((retreat, i) => (
+            {[...requestRetreats, ...retreats].map((retreat, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 30 }}
@@ -554,7 +713,7 @@ export function MarketplacePage() {
         {/* Products Grid */}
         {activeTab === "products" && (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((product, i) => (
+            {[...requestProducts, ...products].map((product, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 30 }}
@@ -689,6 +848,7 @@ export function MarketplacePage() {
             onClose={() => setIsAddOpen(false)}
             selectedAddType={selectedAddType}
             setSelectedAddType={setSelectedAddType}
+            onSubmit={handleRequestSubmit}
           />
         )}
       </div>

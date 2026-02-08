@@ -1,3 +1,5 @@
+import { BannerShowcase } from "@/components/dashboard/BannerShowcase";
+
 export function DashboardPage() {
   return (
     <div className="min-h-screen pt-24 pb-16 relative overflow-hidden">
@@ -41,6 +43,9 @@ export function DashboardPage() {
           <div className="hidden lg:block"></div>
         </div>
       </div>
+
+      {/* Banner Showcase Section */}
+      <BannerShowcase />
     </div>
   );
 }

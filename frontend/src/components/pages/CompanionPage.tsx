@@ -32,6 +32,7 @@ export function CompanionPage() {
   const [hasApplied, setHasApplied] = useState(false);
   const [companionMode, setCompanionMode] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
+  const [approvedCompanions, setApprovedCompanions] = useState<any[]>([]);
   const [booking, setBooking] = useState<{
     open: boolean;
     companion: any | null;
@@ -40,6 +41,39 @@ export function CompanionPage() {
     date: string;
     time: string;
   }>({ open: false, companion: null, type: null, platform: "", date: "", time: "" });
+
+  const loadApprovedCompanions = () => {
+    try {
+      const companionsRaw = localStorage.getItem('nirvaha_approved_companions');
+      if (!companionsRaw) {
+        setApprovedCompanions([]);
+        return;
+      }
+      const approved = JSON.parse(companionsRaw);
+      const normalized = (approved as any[]).map((item) => ({
+        id: item.id || item.email || `approved-${Date.now()}`,
+        name: item.name || "Approved Companion",
+        title: item.expertise || "Companion",
+        avatar: item.profileImage || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400",
+        coverImage: item.coverImage || "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800",
+        rating: item.rating || 4.8,
+        reviews: item.reviews || 0,
+        sessions: item.sessions || 0,
+        location: item.location || "",
+        languages: item.languages || [],
+        specialties: item.specialties || [],
+        bio: item.bio || "",
+        hourlyRate: item.pricing?.video ? `$${item.pricing.video}` : "$0",
+        callRate: item.pricing?.chat ? `$${item.pricing.chat}` : "$0",
+        availability: "Available",
+        responseTime: "1 hour",
+        color: "from-emerald-400 to-teal-500",
+      }));
+      setApprovedCompanions(normalized);
+    } catch {
+      setApprovedCompanions([]);
+    }
+  };
 
   // Check if user has already applied and if approved
   useEffect(() => {
@@ -61,6 +95,7 @@ export function CompanionPage() {
         }
       }
     } catch { }
+    loadApprovedCompanions();
   }, []);
 
   // Poll for approval status changes every 2 seconds
@@ -80,13 +115,14 @@ export function CompanionPage() {
             }
           }
         }
+        loadApprovedCompanions();
       } catch { }
     }, 2000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const companions = [
+  const baseCompanions = [
     {
       id: "dr-anjali-sharma",
       name: "Dr. Anjali Sharma",
@@ -202,6 +238,18 @@ export function CompanionPage() {
       color: "from-pink-400 to-rose-500",
     },
   ];
+
+  // Merge base companions with approved companions (avoid duplicates)
+  const companions = useMemo(() => {
+    const map = new Map<string, any>();
+    baseCompanions.forEach((companion) => map.set(companion.id, companion));
+    approvedCompanions.forEach((companion) => {
+      if (!map.has(companion.id)) {
+        map.set(companion.id, companion);
+      }
+    });
+    return Array.from(map.values());
+  }, [approvedCompanions]);
 
   const copyProfileLink = (id: string) => {
     const link = `https://nirvaha.app/companion/${id}`;

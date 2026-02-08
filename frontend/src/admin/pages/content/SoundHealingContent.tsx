@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -23,146 +23,195 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Upload, X } from "lucide-react";
-
-interface SoundHealing {
-  id: string;
-  title: string;
-  frequency: string;
-  mood: string[];
-  duration: number;
-  level: string;
-  category: string;
-  description: string;
-  status: "Active" | "Draft";
-  thumbnail?: string;
-  audioUrl?: string;
-}
+import { Search, Plus, X } from "lucide-react";
+import {
+  createSound,
+  deleteSound,
+  getSounds,
+  updateSound,
+  type SoundItem,
+} from "@/lib/contentApi";
 
 export function SoundHealingContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedSound, setSelectedSound] = useState<SoundHealing | null>(null);
-  const [formData, setFormData] = useState<Partial<SoundHealing>>({
+  const [selectedSound, setSelectedSound] = useState<SoundItem | null>(null);
+  const [formData, setFormData] = useState<Partial<SoundItem>>({
     title: "",
+    artist: "",
     frequency: "",
     mood: [],
     duration: 0,
-    level: "",
     category: "",
     description: "",
     status: "Active",
+    thumbnailUrl: "",
+    bannerUrl: "",
+    audioUrl: "",
   });
   const [moodInput, setMoodInput] = useState("");
-  const [thumbnailName, setThumbnailName] = useState("");
-  const [audioName, setAudioName] = useState("");
+  const [sounds, setSounds] = useState<SoundItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const [sounds, setSounds] = useState<SoundHealing[]>([
-    {
-      id: "SH-001",
-      title: "Tibetan Singing Bowls",
-      frequency: "528Hz",
-      mood: ["Calm", "Healing", "Relaxation"],
-      duration: 25,
-      level: "Beginner",
-      category: "Singing Bowls",
-      description: "Deep healing frequencies from Tibetan singing bowls...",
-      status: "Active",
-    },
-    {
-      id: "SH-002",
-      title: "Nature Sounds: Ocean Waves",
-      frequency: "432Hz",
-      mood: ["Peaceful", "Natural", "Meditative"],
-      duration: 30,
-      level: "Beginner",
-      category: "Nature",
-      description: "Gentle ocean waves for deep relaxation...",
-      status: "Active",
-    },
-  ]);
+  useEffect(() => {
+    let isMounted = true;
+    getSounds()
+      .then((data) => {
+        if (isMounted) {
+          setSounds(data);
+          setError(null);
+        }
+      })
+      .catch((err: Error) => {
+        if (isMounted) setError(err.message);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
 
-  const filteredSounds = useMemo(
-    () =>
-      sounds.filter(
-        (sound) =>
-          sound.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          sound.category.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [sounds, searchQuery]
-  );
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredSounds = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return sounds.filter(
+      (sound) =>
+        sound.title.toLowerCase().includes(query) ||
+        (sound.category || "").toLowerCase().includes(query)
+    );
+  }, [sounds, searchQuery]);
 
   const handleAdd = () => {
     setSelectedSound(null);
     setFormData({
       title: "",
+      artist: "",
       frequency: "",
       mood: [],
       duration: 0,
-      level: "",
       category: "",
       description: "",
       status: "Active",
+      thumbnailUrl: "",
+      bannerUrl: "",
+      audioUrl: "",
     });
-    setThumbnailName("");
-    setAudioName("");
+    setThumbnailFile(null);
+    setBannerFile(null);
+    setAudioFile(null);
     setIsModalOpen(true);
   };
 
-  const handleEdit = (sound: SoundHealing) => {
+  const handleEdit = (sound: SoundItem) => {
     setSelectedSound(sound);
     setFormData(sound);
-    setThumbnailName(sound.thumbnail || "");
-    setAudioName(sound.audioUrl || "");
+    setThumbnailFile(null);
+    setBannerFile(null);
+    setAudioFile(null);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (sound: SoundHealing) => {
+  const handleDelete = (sound: SoundItem) => {
     setSelectedSound(sound);
     setIsDeleteModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formData.title) return;
-    if (selectedSound) {
-      setSounds((prev) =>
-        prev.map((s) =>
-          s.id === selectedSound.id
-            ? { ...s, ...formData, thumbnail: thumbnailName, audioUrl: audioName }
-            : s
-        )
-      );
-    } else {
-      const newSound: SoundHealing = {
-        id: `SH-${Math.floor(Math.random() * 9000 + 1000)}`,
-        title: formData.title || "",
-        frequency: formData.frequency || "",
-        mood: formData.mood || [],
-        duration: formData.duration || 0,
-        level: formData.level || "Beginner",
-        category: formData.category || "",
-        description: formData.description || "",
-        status: (formData.status as SoundHealing["status"]) || "Active",
-        thumbnail: thumbnailName,
-        audioUrl: audioName,
-      };
-      setSounds((prev) => [...prev, newSound]);
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+    const response = await fetch(`${apiBaseUrl}/api/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error("File upload failed");
     }
-    setIsModalOpen(false);
-    setSelectedSound(null);
+    
+    const data = await response.json();
+    return `${apiBaseUrl}${data.url}`;
   };
 
-  const handleDeleteConfirm = () => {
-    if (selectedSound) {
+  const handleSave = async () => {
+    if (!formData.title || !Number.isFinite(formData.duration)) return;
+
+    try {
+      setIsUploading(true);
+      
+      // Upload files if selected
+      let thumbnailUrl = formData.thumbnailUrl || "";
+      let bannerUrl = formData.bannerUrl || "";
+      let audioUrl = formData.audioUrl || "";
+      
+      if (thumbnailFile) {
+        thumbnailUrl = await uploadFile(thumbnailFile);
+      }
+      
+      if (bannerFile) {
+        bannerUrl = await uploadFile(bannerFile);
+      }
+      
+      if (audioFile) {
+        audioUrl = await uploadFile(audioFile);
+      }
+
+      const payload = {
+        title: formData.title,
+        artist: formData.artist || "",
+        frequency: formData.frequency || "",
+        mood: formData.mood || [],
+        duration: formData.duration,
+        category: formData.category || "",
+        description: formData.description || "",
+        status: (formData.status as SoundItem["status"]) || "Active",
+        thumbnailUrl,
+        bannerUrl,
+        audioUrl,
+      };
+
+      if (selectedSound) {
+        const updated = await updateSound(selectedSound.id, payload);
+        setSounds((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      } else {
+        const created = await createSound(payload);
+        setSounds((prev) => [created, ...prev]);
+      }
+      setIsModalOpen(false);
+      setSelectedSound(null);
+      setThumbnailFile(null);
+      setBannerFile(null);
+      setAudioFile(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedSound) return;
+    try {
+      await deleteSound(selectedSound.id);
       setSounds((prev) => prev.filter((s) => s.id !== selectedSound.id));
       setIsDeleteModalOpen(false);
       setSelectedSound(null);
+    } catch (err) {
+      setError((err as Error).message);
     }
   };
 
   const addMood = () => {
-    if (moodInput.trim() && !formData.mood?.includes(moodInput.trim())) {
+    if (moodInput.trim() && !(formData.mood || []).includes(moodInput.trim())) {
       setFormData({
         ...formData,
         mood: [...(formData.mood || []), moodInput.trim()],
@@ -174,7 +223,7 @@ export function SoundHealingContent() {
   const removeMood = (mood: string) => {
     setFormData({
       ...formData,
-      mood: formData.mood?.filter((m) => m !== mood) || [],
+      mood: (formData.mood || []).filter((m) => m !== mood),
     });
   };
 
@@ -186,21 +235,21 @@ export function SoundHealingContent() {
     {
       key: "frequency",
       header: "Frequency",
-      render: (item: SoundHealing) => (
+      render: (item: SoundItem) => (
         <span className="font-mono text-gray-700">{item.frequency}</span>
       ),
     },
     {
       key: "duration",
       header: "Duration",
-      render: (item: SoundHealing) => <span className="text-gray-700">{item.duration} min</span>,
+      render: (item: SoundItem) => <span className="text-gray-700">{item.duration} min</span>,
     },
     {
       key: "mood",
       header: "Mood Tags",
-      render: (item: SoundHealing) => (
+      render: (item: SoundItem) => (
         <div className="flex flex-wrap gap-1">
-          {item.mood.map((m, idx) => (
+          {(item.mood || []).map((m, idx) => (
             <Badge key={idx} variant="outline" className="text-xs bg-teal-100 text-teal-800 border-teal-300">
               {m}
             </Badge>
@@ -215,18 +264,36 @@ export function SoundHealingContent() {
     {
       key: "actions",
       header: "Actions",
-      render: (item: SoundHealing) => (
-        <ActionMenu
-          variant="content"
-          onEdit={() => handleEdit(item)}
-          onDelete={() => handleDelete(item)}
-        />
+      render: (item: SoundItem) => (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleEdit(item)}
+            className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+          >
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => handleDelete(item)}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Delete
+          </Button>
+          <ActionMenu
+            variant="content"
+            onEdit={() => handleEdit(item)}
+            onDelete={() => handleDelete(item)}
+          />
+        </div>
       ),
     },
     {
       key: "status",
       header: "Status",
-      render: (item: SoundHealing) => (
+      render: (item: SoundItem) => (
         <span className="px-2 py-1 rounded text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/50">
           {item.status}
         </span>
@@ -255,13 +322,14 @@ export function SoundHealingContent() {
             Add Sound Healing
           </Button>
         </div>
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </Card>
 
       <Card className="bg-white border-emerald-200">
         <AdminTable
           data={filteredSounds}
           columns={columns}
-          emptyMessage="No sound healing sessions found"
+          emptyMessage={isLoading ? "Loading sounds..." : "No sound healing sessions found"}
         />
       </Card>
 
@@ -286,15 +354,27 @@ export function SoundHealingContent() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <Label htmlFor="artist">Artist</Label>
+                <Input
+                  id="artist"
+                  value={formData.artist}
+                  onChange={(e) => setFormData({ ...formData, artist: e.target.value })}
+                  placeholder="Sacred Sounds Collective"
+                  className="mt-1"
+                />
+              </div>
+              <div>
                 <Label htmlFor="frequency">Frequency</Label>
                 <Input
                   id="frequency"
                   value={formData.frequency}
                   onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-                  placeholder="e.g., 528Hz"
+                  placeholder="e.g., 528 Hz"
                   className="mt-1"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="duration">Duration (minutes)</Label>
                 <Input
@@ -305,40 +385,15 @@ export function SoundHealingContent() {
                   className="mt-1"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="level">Level</Label>
-                <Select
-                  value={formData.level}
-                  onValueChange={(value) => setFormData({ ...formData, level: value })}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Select
+                <Input
+                  id="category"
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Singing Bowls">Singing Bowls</SelectItem>
-                    <SelectItem value="Nature">Nature</SelectItem>
-                    <SelectItem value="Binaural Beats">Binaural Beats</SelectItem>
-                    <SelectItem value="Chanting">Chanting</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="Bowl Therapy, Nature Sounds"
+                  className="mt-1"
+                />
               </div>
             </div>
             <div>
@@ -348,7 +403,7 @@ export function SoundHealingContent() {
                   id="mood"
                   value={moodInput}
                   onChange={(e) => setMoodInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addMood())}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addMood())}
                   placeholder="Add mood tag..."
                   className="flex-1"
                 />
@@ -356,9 +411,9 @@ export function SoundHealingContent() {
                   Add
                 </Button>
               </div>
-              {formData.mood && formData.mood.length > 0 && (
+              {(formData.mood || []).length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.mood.map((mood, idx) => (
+                  {(formData.mood || []).map((mood, idx) => (
                     <Badge key={idx} variant="outline" className="bg-teal-100 text-teal-800">
                       {mood}
                       <X
@@ -386,7 +441,7 @@ export function SoundHealingContent() {
                 <Select
                   value={formData.status}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, status: value as SoundHealing["status"] })
+                    setFormData({ ...formData, status: value as SoundItem["status"] })
                   }
                 >
                   <SelectTrigger className="mt-1">
@@ -401,50 +456,65 @@ export function SoundHealingContent() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Thumbnail Image</Label>
-                <div className="mt-2">
-                  <label className="w-full">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => setThumbnailName(e.target.files?.[0]?.name || "")}
-                    />
-                    <Button variant="outline" className="w-full" type="button">
-                      <Upload className="mr-2 w-4 h-4" />
-                      {thumbnailName || "Upload Thumbnail"}
-                    </Button>
-                  </label>
-                </div>
+                <Label htmlFor="thumbnail">Thumbnail Image</Label>
+                <Input
+                  id="thumbnail"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                  className="mt-1"
+                />
+                {formData.thumbnailUrl && !thumbnailFile && (
+                  <p className="text-xs text-gray-500 mt-1">Current: {formData.thumbnailUrl.split('/').pop()}</p>
+                )}
+                {thumbnailFile && (
+                  <p className="text-xs text-emerald-600 mt-1">New file: {thumbnailFile.name}</p>
+                )}
               </div>
               <div>
-                <Label>Audio File</Label>
-                <div className="mt-2">
-                  <label className="w-full">
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      className="hidden"
-                      onChange={(e) => setAudioName(e.target.files?.[0]?.name || "")}
-                    />
-                    <Button variant="outline" className="w-full" type="button">
-                      <Upload className="mr-2 w-4 h-4" />
-                      {audioName || "Upload Audio"}
-                    </Button>
-                  </label>
-                </div>
+                <Label htmlFor="banner">Banner Image</Label>
+                <Input
+                  id="banner"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setBannerFile(e.target.files?.[0] || null)}
+                  className="mt-1"
+                />
+                {formData.bannerUrl && !bannerFile && (
+                  <p className="text-xs text-gray-500 mt-1">Current: {formData.bannerUrl.split('/').pop()}</p>
+                )}
+                {bannerFile && (
+                  <p className="text-xs text-emerald-600 mt-1">New file: {bannerFile.name}</p>
+                )}
               </div>
+            </div>
+            <div>
+              <Label htmlFor="audio">Audio File</Label>
+              <Input
+                id="audio"
+                type="file"
+                accept="audio/*"
+                onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                className="mt-1"
+              />
+              {formData.audioUrl && !audioFile && (
+                <p className="text-xs text-gray-500 mt-1">Current: {formData.audioUrl.split('/').pop()}</p>
+              )}
+              {audioFile && (
+                <p className="text-xs text-emerald-600 mt-1">New file: {audioFile.name}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isUploading}>
               Cancel
             </Button>
             <Button
               className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
               onClick={handleSave}
+              disabled={isUploading}
             >
-              {selectedSound ? "Update" : "Create"}
+              {isUploading ? "Uploading..." : selectedSound ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,0 +1,17 @@
+{
+  "name": "nirvaha-backend",
+  "version": "0.1.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^2.0.2",
+    "uuid": "^13.0.0"
+  }
+}

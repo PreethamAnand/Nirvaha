@@ -9,12 +9,14 @@ interface AddItemModalProps {
   onClose: () => void;
   selectedAddType: AddItemType;
   setSelectedAddType: (type: AddItemType) => void;
+  onSubmit: (formData: any, type: AddItemType) => void;
 }
 
 const AddItemModal: React.FC<AddItemModalProps> = ({
   onClose,
   selectedAddType,
   setSelectedAddType,
+  onSubmit,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
@@ -47,7 +49,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   };
 
   const handleFormSubmit = (formData: any) => {
-    console.log(formData);
+    onSubmit(formData, selectedAddType);
     // Reset modal state and close
     setStep(1);
     setSelectedAddType("session"); // Reset to default

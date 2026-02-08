@@ -8,10 +8,6 @@ import {
   Mail,
   Lock,
   Sparkles,
-  User,
-  Users,
-  Stethoscope,
-  Settings,
 } from "lucide-react";
 
 interface UserData {
@@ -108,48 +104,6 @@ const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Quick guest login for local development
-  const handleGuestLogin = () => {
-    const guestUser = {
-      id: "guest",
-      email: "guest@local",
-      name: "Guest User",
-      role: "user",
-      profile: {
-        mobile: "",
-        age: "",
-        gender: "",
-        address: "",
-        education: "",
-        healthCondition: "",
-      }
-    };
-    login(guestUser);
-    localStorage.setItem("token", "guest-token");
-    navigate("/dashboard");
-  };
-
-  // Quick guest admin login for testing admin features
-  const handleGuestAdminLogin = () => {
-    const guestAdminUser = {
-      id: "guest-admin",
-      email: "admin@local",
-      name: "Guest Admin",
-      role: "admin",
-      profile: {
-        mobile: "",
-        age: "",
-        gender: "",
-        address: "",
-        education: "",
-        healthCondition: "",
-      }
-    };
-    login(guestAdminUser);
-    localStorage.setItem("token", "guest-admin-token");
-    navigate("/admin");
   };
 
   // Login page images from public/login page images/ directory - encode spaces so browser can load
@@ -383,43 +337,14 @@ const Login: React.FC = () => {
               </>
             )}
           </motion.button>
-
-          {/* Guest login removed */}
         </form>
-
-        {/* Dev Login Button - No Auth */}
-        <motion.div
-          className="mt-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.55 }}
-        >
-          <button
-            type="button"
-            onClick={handleGuestLogin}
-            className="w-full py-3 px-6 text-base font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-300 bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:border-emerald-400/50"
-          >
-            <Settings className="h-4 w-4" />
-            <span>Dev Login (Skip Auth)</span>
-          </button>
-        </motion.div>
-
-        {/* Separator */}
-        <motion.div
-          className="text-center my-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-        >
-          <span className="text-gray-500 text-xs">OR</span>
-        </motion.div>
 
         {/* Create Account Link */}
         <motion.div
-          className="text-center"
+          className="text-center mt-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.7 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
         >
           <button
             onClick={() => navigate("/signup")}

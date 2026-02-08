@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Star, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Search, Star, CheckCircle, XCircle, Trash2, Pencil } from "lucide-react";
 
 interface Companion {
   id: string;
@@ -33,6 +33,9 @@ interface Companion {
   status: "pending" | "approved" | "rejected";
   appliedDate: string;
   bio: string;
+  profileImage?: string;
+  coverImage?: string;
+  location?: string;
   pricing: {
     chat: number;
     video: number;
@@ -48,6 +51,23 @@ export function CompanionManagementPage() {
   const [companions, setCompanions] = useState<Companion[]>(INITIAL_COMPANIONS);
   const [selectedCompanion, setSelectedCompanion] = useState<Companion | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    expertise: string;
+    bio: string;
+    specialties: string;
+    languages: string;
+    status: Companion["status"];
+    pricingChat: number;
+    pricingVideo: number;
+    availability: string;
+    profileImage?: string;
+    coverImage?: string;
+    location?: string;
+  } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     type: "approve" | "reject" | "delete";
     companion: Companion;
@@ -70,6 +90,9 @@ export function CompanionManagementPage() {
           status: app.status || 'pending',
           appliedDate: new Date(app.submittedAt).toISOString().split('T')[0],
           bio: app.bio,
+          profileImage: app.profileImage || "",
+          coverImage: app.coverImage || "",
+          location: app.location || "",
           pricing: {
             chat: parseInt(app.callRate) || 0,
             video: parseInt(app.hourlyRate) || 0,
@@ -121,6 +144,26 @@ export function CompanionManagementPage() {
   const handleView = (companion: Companion) => {
     setSelectedCompanion(companion);
     setIsViewModalOpen(true);
+  };
+
+  const handleEdit = (companion: Companion) => {
+    setEditForm({
+      id: companion.id,
+      name: companion.name,
+      email: companion.email,
+      expertise: companion.expertise,
+      bio: companion.bio,
+      specialties: companion.specialties.join(", "),
+      languages: companion.languages.join(", "),
+      status: companion.status,
+      pricingChat: companion.pricing.chat,
+      pricingVideo: companion.pricing.video,
+      availability: companion.availability.join(", "),
+      profileImage: (companion as any).profileImage || "",
+      coverImage: (companion as any).coverImage || "",
+      location: (companion as any).location || "",
+    });
+    setIsEditModalOpen(true);
   };
 
   const openConfirm = (type: "approve" | "reject" | "delete", companion: Companion) => {
@@ -179,7 +222,15 @@ export function CompanionManagementPage() {
               name: companion.name,
               email: companion.email,
               expertise: companion.expertise,
-              status: 'approved'
+              bio: companion.bio,
+              specialties: companion.specialties,
+              languages: companion.languages,
+              pricing: companion.pricing,
+              availability: companion.availability,
+              profileImage: (companion as any).profileImage || "",
+              coverImage: (companion as any).coverImage || "",
+              location: (companion as any).location || "",
+              status: 'approved',
             });
             localStorage.setItem('nirvaha_approved_companions', JSON.stringify(approved));
           }
@@ -232,6 +283,15 @@ export function CompanionManagementPage() {
         <div className="flex gap-2">
           <Button
             size="sm"
+            className="bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-1"
+            onClick={() => handleEdit(item)}
+            title="Edit companion details"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
             className="bg-emerald-500 hover:bg-emerald-600 text-white flex items-center gap-1"
             onClick={() => openConfirm("approve", item)}
             disabled={item.status === "approved"}
@@ -252,12 +312,12 @@ export function CompanionManagementPage() {
           </Button>
           <Button
             size="sm"
-            className="bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
+            className="bg-rose-500 hover:bg-rose-600 text-white flex items-center gap-1"
             onClick={() => openConfirm("delete", item)}
-            title="Hold application for review"
+            title="Remove companion"
           >
-            <Clock className="w-4 h-4" />
-            Hold
+            <Trash2 className="w-4 h-4" />
+            Remove
           </Button>
         </div>
       ),
@@ -392,6 +452,200 @@ export function CompanionManagementPage() {
                 </Button>
               </>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-sm max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Companion</DialogTitle>
+            <DialogDescription>Update companion profile details</DialogDescription>
+          </DialogHeader>
+          {editForm && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Name</label>
+                  <Input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Expertise</label>
+                  <Input
+                    value={editForm.expertise}
+                    onChange={(e) => setEditForm({ ...editForm, expertise: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700">Bio</label>
+                <Input
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Specialties</label>
+                  <Input
+                    value={editForm.specialties}
+                    onChange={(e) => setEditForm({ ...editForm, specialties: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Languages</label>
+                  <Input
+                    value={editForm.languages}
+                    onChange={(e) => setEditForm({ ...editForm, languages: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Chat Price</label>
+                  <Input
+                    type="number"
+                    value={editForm.pricingChat}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, pricingChat: Number(e.target.value) })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Video Price</label>
+                  <Input
+                    type="number"
+                    value={editForm.pricingVideo}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, pricingVideo: Number(e.target.value) })
+                    }
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700">Availability</label>
+                <Input
+                  value={editForm.availability}
+                  onChange={(e) => setEditForm({ ...editForm, availability: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Status</label>
+                  <Select
+                    value={editForm.status}
+                    onValueChange={(value) =>
+                      setEditForm({ ...editForm, status: value as Companion["status"] })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">pending</SelectItem>
+                      <SelectItem value="approved">approved</SelectItem>
+                      <SelectItem value="rejected">rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Location</label>
+                  <Input
+                    value={editForm.location || ""}
+                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+              onClick={() => {
+                if (!editForm) return;
+                const existing = companions.find((item) => item.id === editForm.id);
+                const updatedCompanion: Companion = {
+                  id: editForm.id,
+                  name: editForm.name,
+                  email: editForm.email,
+                  expertise: editForm.expertise,
+                  specialties: editForm.specialties.split(",").map((s) => s.trim()).filter(Boolean),
+                  languages: editForm.languages.split(",").map((l) => l.trim()).filter(Boolean),
+                  rating: existing?.rating || 0,
+                  status: editForm.status,
+                  appliedDate: existing?.appliedDate || "",
+                  bio: editForm.bio,
+                  pricing: {
+                    chat: editForm.pricingChat,
+                    video: editForm.pricingVideo,
+                  },
+                  availability: editForm.availability.split(",").map((a) => a.trim()).filter(Boolean),
+                };
+
+                setCompanions((prev) =>
+                  prev.map((item) => (item.id === updatedCompanion.id ? updatedCompanion : item))
+                );
+
+                try {
+                  const applicationsRaw = localStorage.getItem('nirvaha_companion_applications');
+                  if (applicationsRaw) {
+                    const applications = JSON.parse(applicationsRaw);
+                    const updated = applications.map((app: any) =>
+                      app.id === updatedCompanion.id
+                        ? {
+                            ...app,
+                            fullName: updatedCompanion.name,
+                            title: updatedCompanion.expertise,
+                            bio: updatedCompanion.bio,
+                            specialties: editForm.specialties,
+                            languages: editForm.languages,
+                            callRate: String(updatedCompanion.pricing.chat),
+                            hourlyRate: String(updatedCompanion.pricing.video),
+                            availability: editForm.availability,
+                            status: updatedCompanion.status,
+                            location: editForm.location || app.location,
+                          }
+                        : app
+                    );
+                    localStorage.setItem('nirvaha_companion_applications', JSON.stringify(updated));
+                  }
+
+                  const approvedRaw = localStorage.getItem('nirvaha_approved_companions');
+                  if (approvedRaw) {
+                    const approved = JSON.parse(approvedRaw);
+                    const updatedApproved = approved.map((comp: any) =>
+                      comp.id === updatedCompanion.id
+                        ? {
+                            ...comp,
+                            name: updatedCompanion.name,
+                            expertise: updatedCompanion.expertise,
+                            bio: updatedCompanion.bio,
+                            specialties: updatedCompanion.specialties,
+                            languages: updatedCompanion.languages,
+                            pricing: updatedCompanion.pricing,
+                            availability: updatedCompanion.availability,
+                            location: editForm.location || comp.location,
+                            status: updatedCompanion.status,
+                          }
+                        : comp
+                    );
+                    localStorage.setItem('nirvaha_approved_companions', JSON.stringify(updatedApproved));
+                  }
+                } catch (error) {
+                  console.error('Failed to update companion data:', error);
+                }
+
+                setIsEditModalOpen(false);
+              }}
+            >
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

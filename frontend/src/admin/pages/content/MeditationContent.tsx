@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -22,74 +22,67 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Upload, CheckCircle, XCircle, Clock } from "lucide-react";
-
-interface Meditation {
-  id: string;
-  title: string;
-  duration: number;
-  level: string;
-  category: string;
-  description: string;
-  status: "Active" | "Draft";
-  thumbnail?: string;
-  audioUrl?: string;
-}
+import { Search, Plus } from "lucide-react";
+import {
+  createMeditation,
+  deleteMeditation,
+  getMeditations,
+  updateMeditation,
+  type MeditationItem,
+} from "@/lib/contentApi";
 
 export function MeditationContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedMeditation, setSelectedMeditation] = useState<Meditation | null>(null);
-  const [formData, setFormData] = useState<Partial<Meditation>>({
+  const [selectedMeditation, setSelectedMeditation] = useState<MeditationItem | null>(null);
+  const [formData, setFormData] = useState<Partial<MeditationItem>>({
     title: "",
     duration: 0,
     level: "Beginner",
     category: "",
     description: "",
     status: "Active",
+    thumbnailUrl: "",
+    audioUrl: "",
   });
-  const [thumbnailName, setThumbnailName] = useState("");
-  const [audioName, setAudioName] = useState("");
-  const [meditations, setMeditations] = useState<Meditation[]>([
-    {
-      id: "M-001",
-      title: "Morning Mindfulness",
-      duration: 15,
-      level: "Beginner",
-      category: "Mindfulness",
-      description: "Start your day with clarity and peace...",
-      status: "Active",
-    },
-    {
-      id: "M-002",
-      title: "Deep Sleep Meditation",
-      duration: 30,
-      level: "Intermediate",
-      category: "Sleep",
-      description: "Relax and prepare for restful sleep...",
-      status: "Active",
-    },
-    {
-      id: "M-003",
-      title: "Stress Relief Session",
-      duration: 20,
-      level: "Beginner",
-      category: "Stress",
-      description: "Release tension and find inner calm...",
-      status: "Draft",
-    },
-  ]);
+  const [meditations, setMeditations] = useState<MeditationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const filteredMeditations = useMemo(
-    () =>
-      meditations.filter(
-        (meditation) =>
-          meditation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          meditation.category.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [meditations, searchQuery]
-  );
+  useEffect(() => {
+    let isMounted = true;
+    getMeditations()
+      .then((data) => {
+        if (isMounted) {
+          setMeditations(data);
+          setError(null);
+        }
+      })
+      .catch((err: Error) => {
+        if (isMounted) setError(err.message);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredMeditations = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return meditations.filter(
+      (meditation) =>
+        meditation.title.toLowerCase().includes(query) ||
+        meditation.category.toLowerCase().includes(query)
+    );
+  }, [meditations, searchQuery]);
 
   const handleAdd = () => {
     setSelectedMeditation(null);
@@ -100,58 +93,111 @@ export function MeditationContent() {
       category: "",
       description: "",
       status: "Active",
+      thumbnailUrl: "",
+      bannerUrl: "",
+      audioUrl: "",
     });
-    setThumbnailName("");
-    setAudioName("");
+    setThumbnailFile(null);
+    setBannerFile(null);
+    setAudioFile(null);
     setIsModalOpen(true);
   };
 
-  const handleEdit = (meditation: Meditation) => {
+  const handleEdit = (meditation: MeditationItem) => {
     setSelectedMeditation(meditation);
     setFormData(meditation);
-    setThumbnailName(meditation.thumbnail || "");
-    setAudioName(meditation.audioUrl || "");
+    setThumbnailFile(null);
+    setBannerFile(null);
+    setAudioFile(null);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (meditation: Meditation) => {
+  const handleDelete = (meditation: MeditationItem) => {
     setSelectedMeditation(meditation);
     setIsDeleteModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formData.title) return;
-    if (selectedMeditation) {
-      setMeditations((prev) =>
-        prev.map((m) =>
-          m.id === selectedMeditation.id
-            ? { ...m, ...formData, thumbnail: thumbnailName, audioUrl: audioName }
-            : m
-        )
-      );
-    } else {
-      const newMeditation: Meditation = {
-        id: `M-${Math.floor(Math.random() * 9000 + 1000)}`,
-        title: formData.title || "",
-        duration: formData.duration || 0,
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+    const response = await fetch(`${apiBaseUrl}/api/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error("File upload failed");
+    }
+    
+    const data = await response.json();
+    return `${apiBaseUrl}${data.url}`;
+  };
+
+  const handleSave = async () => {
+    if (!formData.title || !Number.isFinite(formData.duration)) return;
+
+    try {
+      setIsUploading(true);
+      
+      // Upload files if selected
+      let thumbnailUrl = formData.thumbnailUrl || "";
+      let bannerUrl = formData.bannerUrl || "";
+      let audioUrl = formData.audioUrl || "";
+      
+      if (thumbnailFile) {
+        thumbnailUrl = await uploadFile(thumbnailFile);
+      }
+      
+      if (bannerFile) {
+        bannerUrl = await uploadFile(bannerFile);
+      }
+      
+      if (audioFile) {
+        audioUrl = await uploadFile(audioFile);
+      }
+
+      const payload = {
+        title: formData.title,
+        duration: formData.duration,
         level: formData.level || "Beginner",
         category: formData.category || "",
         description: formData.description || "",
-        status: (formData.status as Meditation["status"]) || "Active",
-        thumbnail: thumbnailName,
-        audioUrl: audioName,
+        status: (formData.status as MeditationItem["status"]) || "Active",
+        thumbnailUrl,
+        bannerUrl,
+        audioUrl,
       };
-      setMeditations((prev) => [...prev, newMeditation]);
+
+      if (selectedMeditation) {
+        const updated = await updateMeditation(selectedMeditation.id, payload);
+        setMeditations((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      } else {
+        const created = await createMeditation(payload);
+        setMeditations((prev) => [created, ...prev]);
+      }
+      setIsModalOpen(false);
+      setSelectedMeditation(null);
+      setThumbnailFile(null);
+      setBannerFile(null);
+      setAudioFile(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsUploading(false);
     }
-    setIsModalOpen(false);
-    setSelectedMeditation(null);
   };
 
-  const handleDeleteConfirm = () => {
-    if (selectedMeditation) {
+  const handleDeleteConfirm = async () => {
+    if (!selectedMeditation) return;
+    try {
+      await deleteMeditation(selectedMeditation.id);
       setMeditations((prev) => prev.filter((m) => m.id !== selectedMeditation.id));
       setIsDeleteModalOpen(false);
       setSelectedMeditation(null);
+    } catch (err) {
+      setError((err as Error).message);
     }
   };
 
@@ -163,12 +209,12 @@ export function MeditationContent() {
     {
       key: "duration",
       header: "Duration",
-      render: (item: Meditation) => <span className="text-gray-700">{item.duration} min</span>,
+      render: (item: MeditationItem) => <span className="text-gray-700">{item.duration} min</span>,
     },
     {
       key: "level",
       header: "Level",
-      render: (item: Meditation) => (
+      render: (item: MeditationItem) => (
         <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-300">
           {item.level}
         </span>
@@ -181,18 +227,36 @@ export function MeditationContent() {
     {
       key: "actions",
       header: "Actions",
-      render: (item: Meditation) => (
-        <ActionMenu
-          variant="content"
-          onEdit={() => handleEdit(item)}
-          onDelete={() => handleDelete(item)}
-        />
+      render: (item: MeditationItem) => (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleEdit(item)}
+            className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+          >
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => handleDelete(item)}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Delete
+          </Button>
+          <ActionMenu
+            variant="content"
+            onEdit={() => handleEdit(item)}
+            onDelete={() => handleDelete(item)}
+          />
+        </div>
       ),
     },
     {
       key: "status",
       header: "Status",
-      render: (item: Meditation) => (
+      render: (item: MeditationItem) => (
         <span className="px-2 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
           {item.status}
         </span>
@@ -221,13 +285,14 @@ export function MeditationContent() {
             Add Meditation
           </Button>
         </div>
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </Card>
 
       <Card className="bg-white border-emerald-200">
         <AdminTable
           data={filteredMeditations}
           columns={columns}
-          emptyMessage="No meditations found"
+          emptyMessage={isLoading ? "Loading meditations..." : "No meditations found"}
         />
       </Card>
 
@@ -280,21 +345,13 @@ export function MeditationContent() {
             </div>
             <div>
               <Label htmlFor="category">Category</Label>
-              <Select
+              <Input
+                id="category"
                 value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Mindfulness">Mindfulness</SelectItem>
-                  <SelectItem value="Sleep">Sleep</SelectItem>
-                  <SelectItem value="Stress">Stress</SelectItem>
-                  <SelectItem value="Focus">Focus</SelectItem>
-                  <SelectItem value="Anxiety">Anxiety</SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                placeholder="Mindfulness, Sleep, Focus"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label htmlFor="description">Description</Label>
@@ -312,7 +369,7 @@ export function MeditationContent() {
                 <Select
                   value={formData.status}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, status: value as Meditation["status"] })
+                    setFormData({ ...formData, status: value as MeditationItem["status"] })
                   }
                 >
                   <SelectTrigger className="mt-1">
@@ -327,50 +384,65 @@ export function MeditationContent() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Thumbnail Image</Label>
-                <div className="mt-2">
-                  <label className="w-full">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => setThumbnailName(e.target.files?.[0]?.name || "")}
-                    />
-                    <Button variant="outline" className="w-full" type="button">
-                      <Upload className="mr-2 w-4 h-4" />
-                      {thumbnailName || "Upload Thumbnail"}
-                    </Button>
-                  </label>
-                </div>
+                <Label htmlFor="thumbnail">Thumbnail Image</Label>
+                <Input
+                  id="thumbnail"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                  className="mt-1"
+                />
+                {formData.thumbnailUrl && !thumbnailFile && (
+                  <p className="text-xs text-gray-500 mt-1">Current: {formData.thumbnailUrl.split('/').pop()}</p>
+                )}
+                {thumbnailFile && (
+                  <p className="text-xs text-emerald-600 mt-1">New file: {thumbnailFile.name}</p>
+                )}
               </div>
               <div>
-                <Label>Audio File</Label>
-                <div className="mt-2">
-                  <label className="w-full">
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      className="hidden"
-                      onChange={(e) => setAudioName(e.target.files?.[0]?.name || "")}
-                    />
-                    <Button variant="outline" className="w-full" type="button">
-                      <Upload className="mr-2 w-4 h-4" />
-                      {audioName || "Upload Audio"}
-                    </Button>
-                  </label>
-                </div>
+                <Label htmlFor="banner">Banner Image</Label>
+                <Input
+                  id="banner"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setBannerFile(e.target.files?.[0] || null)}
+                  className="mt-1"
+                />
+                {formData.bannerUrl && !bannerFile && (
+                  <p className="text-xs text-gray-500 mt-1">Current: {formData.bannerUrl.split('/').pop()}</p>
+                )}
+                {bannerFile && (
+                  <p className="text-xs text-emerald-600 mt-1">New file: {bannerFile.name}</p>
+                )}
               </div>
+            </div>
+            <div>
+              <Label htmlFor="audio">Audio File</Label>
+              <Input
+                id="audio"
+                type="file"
+                accept="audio/*"
+                onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                className="mt-1"
+              />
+              {formData.audioUrl && !audioFile && (
+                <p className="text-xs text-gray-500 mt-1">Current: {formData.audioUrl.split('/').pop()}</p>
+              )}
+              {audioFile && (
+                <p className="text-xs text-emerald-600 mt-1">New file: {audioFile.name}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isUploading}>
               Cancel
             </Button>
             <Button
               className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
               onClick={handleSave}
+              disabled={isUploading}
             >
-              {selectedMeditation ? "Update" : "Create"}
+              {isUploading ? "Uploading..." : selectedMeditation ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>

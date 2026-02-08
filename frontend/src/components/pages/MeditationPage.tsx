@@ -1,4 +1,6 @@
-import React ,{ useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { getMeditations, type MeditationItem } from "@/lib/contentApi";
+import { BannerShowcase } from "@/components/dashboard/BannerShowcase";
 
 const heroImage = "/meditation/hero.png";
 const wellness1 = "/meditation/wellness1.jpeg";
@@ -27,10 +29,42 @@ const paschimottanasana = "/meditation/Paschimottanasana.jpeg";
 
 // Main Page Component
 export default function MeditationGuide() {
+  const [meditations, setMeditations] = useState<MeditationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getMeditations()
+      .then((data) => {
+        if (isMounted) {
+          setMeditations(data);
+          setError(null);
+        }
+      })
+      .catch((err: Error) => {
+        if (isMounted) setError(err.message);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activeMeditations = useMemo(
+    () => meditations.filter((session) => session.status === "Active"),
+    [meditations]
+  );
+
   return (
     <div className="font-sans text-gray-700">
       <HeroSection />
+      <BannerShowcase meditations={meditations} />
       <MeditationImages />
+      <GuidedSessions sessions={activeMeditations} isLoading={isLoading} error={error} />
       <MeditationPoses />
       <EssentialGuidance />
       <ConsultSection />
@@ -136,6 +170,83 @@ const MeditationImages: React.FC = () => (
             </div>
           );
         })}
+      </div>
+    </div>
+  </section>
+);
+
+type GuidedSessionsProps = {
+  sessions: MeditationItem[];
+  isLoading: boolean;
+  error: string | null;
+};
+
+const GuidedSessions: React.FC<GuidedSessionsProps> = ({ sessions, isLoading, error }) => (
+  <section className="py-20 bg-white">
+    <div className="max-w-7xl mx-auto px-4">
+      <div className="mb-12 text-center">
+        <h2 className="text-4xl mb-4">
+          Guided <span className="italic text-emerald-600">Sessions</span>
+        </h2>
+        <p className="text-gray-500">
+          Curated practices to match your energy and intention
+        </p>
+      </div>
+
+      {error && (
+        <p className="text-center text-sm text-red-600 mb-6">
+          {error}
+        </p>
+      )}
+
+      {isLoading && (
+        <p className="text-center text-sm text-gray-500">Loading sessions...</p>
+      )}
+
+      {!isLoading && sessions.length === 0 && (
+        <p className="text-center text-sm text-gray-500">
+          No active sessions yet. Check back soon.
+        </p>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {sessions.map((session) => (
+          <div
+            key={session.id}
+            className="group rounded-3xl border border-emerald-100 bg-emerald-50/30 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs uppercase tracking-wide text-emerald-600">
+                {session.category || "Meditation"}
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-xs text-emerald-700 shadow-sm">
+                {session.duration} min
+              </span>
+            </div>
+
+            <div className="mb-4">
+              {session.thumbnailUrl ? (
+                <img
+                  src={session.thumbnailUrl}
+                  alt={session.title}
+                  className="h-40 w-full rounded-2xl object-cover"
+                />
+              ) : (
+                <div className="h-40 w-full rounded-2xl bg-gradient-to-br from-emerald-200 via-teal-200 to-emerald-100" />
+              )}
+            </div>
+
+            <h3 className="mb-2 text-lg text-gray-800">{session.title}</h3>
+            <p className="text-sm text-gray-500 mb-4 line-clamp-3">
+              {session.description || "Gentle guidance for calm, focus, and clarity."}
+            </p>
+
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>{session.level || "Beginner"}</span>
+              <span className="text-emerald-600">Breath and focus</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   </section>

@@ -29,6 +29,7 @@ import { AnalyticsPage } from "./admin/pages/AnalyticsPage";
 import { BookingManagementPage } from "./admin/pages/BookingManagementPage";
 import { CompanionManagementPage } from "./admin/pages/CompanionManagementPage";
 import { ContentManagementPage } from "./admin/pages/ContentManagementPage";
+import { MarketplaceManagementPage } from "./admin/pages/MarketplaceManagementPage";
 import { SettingsPage } from "./admin/pages/SettingsPage";
 import { UserManagementPage } from "./admin/pages/UserManagementPage";
 import { MeditationContent } from "./admin/pages/content/MeditationContent";
@@ -103,6 +104,7 @@ function AppInner() {
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="bookings" element={<BookingManagementPage />} />
           <Route path="companions" element={<CompanionManagementPage />} />
+          <Route path="marketplace" element={<MarketplaceManagementPage />} />
           <Route path="content" element={<ContentManagementPage />} />
           <Route path="content/meditation" element={<MeditationContent />} />
           <Route path="content/sound" element={<SoundHealingContent />} />

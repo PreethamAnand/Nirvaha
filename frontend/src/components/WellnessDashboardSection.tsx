@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Clock, User, Bookmark } from "lucide-react";
+import { Clock, User, Bookmark, Calendar } from "lucide-react";
+import { EngagementStreak } from "./EngagementStreak";
 
 interface SessionCard {
   id: string;
@@ -268,6 +269,36 @@ export function WellnessDashboardSection() {
               You haven't saved anything yet. Explore sessions and keep what
               resonates.
             </p>
+          </div>
+        </section>
+
+        {/* User Analytics Section */}
+        <section className="mb-16">
+          <h2 className="text-2xl font-bold text-[#0f131a] mb-8">Your Activity</h2>
+          
+          {/* Bookings Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Bookings Card */}
+            <div className="border-2 border-[#0f131a] rounded-3xl p-8 hover:border-[#1a5d47] transition-colors">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-[#1a5d47] flex items-center justify-center">
+                  <Calendar className="w-7 h-7 text-white" />
+                </div>
+                <span className="text-sm font-medium text-[#595b67]">This Month</span>
+              </div>
+              <div className="mb-2">
+                <h3 className="text-5xl font-bold text-[#0f131a] mb-1">12</h3>
+                <p className="text-base text-[#595b67] font-medium">Total Bookings</p>
+              </div>
+              <div className="mt-4 pt-4 border-t-2 border-[#595b67]/20">
+                <p className="text-sm text-[#595b67]">
+                  <span className="text-[#1a5d47] font-semibold">+3</span> compared to last month
+                </p>
+              </div>
+            </div>
+
+            {/* Engagement Streak Tracker with Heatmap */}
+            <EngagementStreak />
           </div>
         </section>
 

@@ -92,6 +92,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           path: "/admin/bookings",
         },
         {
+          title: "Marketplace Requests",
+          icon: ShoppingBag,
+          path: "/admin/marketplace",
+        },
+        {
           title: "Content Management",
           icon: FileText,
           children: [
