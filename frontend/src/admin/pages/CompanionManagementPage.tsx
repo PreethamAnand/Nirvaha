@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Star, CheckCircle, XCircle, Trash2, Pencil } from "lucide-react";
+import { Search, Star, CheckCircle, XCircle, Trash2, Pencil, RotateCw } from "lucide-react";
 
 interface Companion {
   id: string;
@@ -72,13 +72,18 @@ export function CompanionManagementPage() {
     type: "approve" | "reject" | "delete";
     companion: Companion;
   } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Function to load companion applications from localStorage
   const loadApplications = () => {
     try {
+      console.log('🔄 [ADMIN-COMPANION] Loading applications from localStorage...');
       const applicationsRaw = localStorage.getItem('nirvaha_companion_applications');
+      console.log('📦 [ADMIN-COMPANION] Raw data:', applicationsRaw);
       if (applicationsRaw) {
         const applications = JSON.parse(applicationsRaw);
+        console.log('✅ [ADMIN-COMPANION] Parsed:', applications.length, 'applications');
+        console.log('📊 [ADMIN-COMPANION] Data:', applications);
         const formattedApplications: Companion[] = applications.map((app: any) => ({
           id: app.id,
           name: app.fullName,
@@ -99,12 +104,14 @@ export function CompanionManagementPage() {
           },
           availability: [app.availability],
         }));
+        console.log('🎨 [ADMIN-COMPANION] Formatted:', formattedApplications.length, 'companions');
         setCompanions([...formattedApplications, ...INITIAL_COMPANIONS]);
       } else {
+        console.log('⚠️ [ADMIN-COMPANION] No applications found, using initial companions only');
         setCompanions([...INITIAL_COMPANIONS]);
       }
     } catch (error) {
-      console.error('Failed to load companion applications:', error);
+      console.error('❌ [ADMIN-COMPANION] Failed to load:', error);
     }
   };
 
@@ -117,15 +124,31 @@ export function CompanionManagementPage() {
       loadApplications();
     }, 2000);
     
-    // Also listen for storage changes (for when localStorage is updated in other tabs)
+    // Listen for storage changes from other tabs
     const handleStorageChange = () => {
       loadApplications();
     };
     window.addEventListener('storage', handleStorageChange);
     
+    // Listen for custom event from same tab
+    const handleCustomUpdate = () => {
+      loadApplications();
+    };
+    window.addEventListener('companion-updated', handleCustomUpdate);
+    
+    // Reload when page becomes visible (tab switching)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadApplications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     return () => {
       clearInterval(interval);
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('companion-updated', handleCustomUpdate);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -181,6 +204,8 @@ export function CompanionManagementPage() {
           const applications = JSON.parse(applicationsRaw);
           const filtered = applications.filter((app: any) => app.id !== confirmAction.companion.id);
           localStorage.setItem('nirvaha_companion_applications', JSON.stringify(filtered));
+          // Notify other components
+          window.dispatchEvent(new CustomEvent('companion-updated'));
         }
       } catch (error) {
         console.error('Failed to delete from localStorage:', error);
@@ -204,6 +229,8 @@ export function CompanionManagementPage() {
               : app
           );
           localStorage.setItem('nirvaha_companion_applications', JSON.stringify(updated));
+          // Notify other components
+          window.dispatchEvent(new CustomEvent('companion-updated'));
         }
       } catch (error) {
         console.error('Failed to update localStorage:', error);
@@ -233,6 +260,8 @@ export function CompanionManagementPage() {
               status: 'approved',
             });
             localStorage.setItem('nirvaha_approved_companions', JSON.stringify(approved));
+            // Notify other components
+            window.dispatchEvent(new CustomEvent('companion-updated'));
           }
         } catch (error) {
           console.error('Failed to save approved companion:', error);
@@ -324,6 +353,13 @@ export function CompanionManagementPage() {
     },
   ];
 
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    console.log('🔄 [ADMIN] Manual refresh triggered');
+    loadApplications();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -331,6 +367,14 @@ export function CompanionManagementPage() {
           <h1 className="text-3xl font-bold text-black mb-2">Companion Management</h1>
           <p className="text-gray-700">Approve, reject, and manage companion applications</p>
         </div>
+        <Button
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          className="bg-emerald-500 hover:bg-emerald-600 text-white flex items-center gap-2"
+        >
+          <RotateCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <Card className="bg-white border-emerald-200 p-6">
@@ -636,6 +680,8 @@ export function CompanionManagementPage() {
                         : comp
                     );
                     localStorage.setItem('nirvaha_approved_companions', JSON.stringify(updatedApproved));
+                    // Notify other components
+                    window.dispatchEvent(new CustomEvent('companion-updated'));
                   }
                 } catch (error) {
                   console.error('Failed to update companion data:', error);

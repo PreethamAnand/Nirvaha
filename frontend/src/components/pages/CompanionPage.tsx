@@ -313,22 +313,30 @@ export function CompanionPage() {
   };
 
   const handleApplicationSubmit = (formData: any) => {
+    console.log('🚀 [COMPANION] Starting application submission');
     const application = {
       id: crypto.randomUUID?.() || `${Date.now()}`,
       ...formData,
       status: 'pending',
       submittedAt: Date.now(),
     };
+    console.log('📝 [COMPANION] New application:', application);
 
     try {
       const raw = localStorage.getItem('nirvaha_companion_applications');
+      console.log('📦 [COMPANION] Current localStorage:', raw);
       const arr = raw ? JSON.parse(raw) : [];
       arr.unshift(application);
       localStorage.setItem('nirvaha_companion_applications', JSON.stringify(arr));
+      console.log('✅ [COMPANION] Saved to localStorage:', arr.length, 'applications');
+      // Dispatch custom event to notify admin panel
+      window.dispatchEvent(new CustomEvent('companion-updated'));
+      console.log('📢 [COMPANION] Dispatched companion-updated event');
       setHasApplied(true);
       setIsApplicationOpen(false);
-      alert('Application submitted successfully! We will review it and get back to you soon.');
+      alert('Application submitted successfully! Check admin panel at /admin/companions');
     } catch (error) {
+      console.error('❌ [COMPANION] Submission failed:', error);
       alert('Failed to submit application. Please try again.');
     }
   };

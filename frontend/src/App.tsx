@@ -13,6 +13,7 @@ import { MarketplacePage } from "./components/pages/MarketplacePage";
 import { CompanionPage } from "./components/pages/CompanionPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { Navigation } from "./components/Navigation";
+import DebugPage from "./pages/DebugPage";
 
 import { FeaturesBentoGrid } from "./components/dashboard/FeaturesBentoGrid";
 import { CommonProblems } from "./components/dashboard/CommonProblems";
@@ -73,6 +74,9 @@ function AppInner() {
       <Routes>
         {/* Public Landing Page */}
         <Route path="/" element={<LandingPage />} />
+
+        {/* Debug Page - For testing localStorage and data flow */}
+        <Route path="/debug" element={<DebugPage />} />
 
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />

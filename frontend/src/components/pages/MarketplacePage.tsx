@@ -32,7 +32,6 @@ const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1500530855697-b586d89b
 
 export function MarketplacePage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
   const [activeTab, setActiveTab] =
     useState<"sessions" | "retreats" | "products">("sessions");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -52,23 +51,72 @@ export function MarketplacePage() {
   };
 
   const saveRequests = (next: MarketplaceRequest[]) => {
+    console.log('💾 [USER] saveRequests called with', next.length, 'requests');
     setRequests(next);
     try {
-      localStorage.setItem(MARKETPLACE_REQUESTS_KEY, JSON.stringify(next));
-    } catch {
-      // Ignore storage errors
+      const jsonData = JSON.stringify(next);
+      console.log('📦 [USER] JSON string size:', jsonData.length, 'bytes');
+      console.log('📝 [USER] Key:', MARKETPLACE_REQUESTS_KEY);
+      
+      localStorage.setItem(MARKETPLACE_REQUESTS_KEY, jsonData);
+      console.log('✅ [USER] Successfully saved to localStorage');
+      
+      // Verify it was saved
+      const verify = localStorage.getItem(MARKETPLACE_REQUESTS_KEY);
+      if (verify) {
+        console.log('✔️ [USER] Verification - data in storage: ' + verify.length + ' chars');
+      } else {
+        console.error('❌ [USER] Verification FAILED - no data found!');
+      }
+      
+      // Dispatch custom event to notify other components
+      console.log('📢 [USER] Dispatching marketplace-updated event');
+      window.dispatchEvent(new CustomEvent('marketplace-updated'));
+      
+      try {
+        const channel = new BroadcastChannel('nirvaha-marketplace');
+        channel.postMessage({ type: 'updated', at: Date.now() });
+        channel.close();
+        console.log('📡 [USER] BroadcastChannel message sent');
+      } catch (bcError) {
+        console.log('⚠️ [USER] BroadcastChannel not available');
+      }
+    } catch (error) {
+      console.error('❌ [USER] Failed to save:', error);
     }
   };
 
   useEffect(() => {
     loadRequests();
 
+    // Listen for storage changes from other tabs
     const handleStorage = () => loadRequests();
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    
+    // Listen for custom event from same tab
+    const handleCustomUpdate = () => loadRequests();
+    window.addEventListener("marketplace-updated", handleCustomUpdate);
+    
+    // Reload when page becomes visible (tab switching)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadRequests();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("marketplace-updated", handleCustomUpdate);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const handleRequestSubmit = (formData: any, type: "session" | "retreat" | "product") => {
+    console.log('🚀 [USER] handleRequestSubmit called');
+    console.log('📝 [USER] Type:', type);
+    console.log('📝 [USER] FormData keys:', Object.keys(formData));
+    
     const newRequest: MarketplaceRequest = {
       id: crypto.randomUUID?.() || `${Date.now()}`,
       type,
@@ -76,18 +124,11 @@ export function MarketplacePage() {
       data: formData,
       createdAt: Date.now(),
     };
+    console.log('✅ [USER] Request created, ID:', newRequest.id);
+    console.log('📤 [USER] Total requests to save:', 1 + requests.length);
+    
     saveRequests([newRequest, ...requests]);
-  };
-
-  const approveRequest = (id: string) => {
-    const next = requests.map((item) =>
-      item.id === id ? { ...item, status: "approved" } : item
-    );
-    saveRequests(next);
-  };
-
-  const deleteRequest = (id: string) => {
-    saveRequests(requests.filter((item) => item.id !== id));
+    alert(`✅ ${type.toUpperCase()} submitted!\n\nGo to admin panel to review:\nhttp://localhost:3000/admin/marketplace`);
   };
 
   const sessions = [
@@ -310,7 +351,6 @@ export function MarketplacePage() {
   ];
 
   const approvedRequests = requests.filter((item) => item.status === "approved");
-  const pendingRequests = requests.filter((item) => item.status === "pending");
 
   const requestSessions = approvedRequests
     .filter((item) => item.type === "session")
@@ -471,44 +511,6 @@ export function MarketplacePage() {
             </motion.button>
           </div>
         </motion.div>
-
-        {isAdmin && pendingRequests.length > 0 && (
-          <div className="mb-10 rounded-[28px] border border-amber-200/60 bg-white/90 backdrop-blur-xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-teal-800">Marketplace Requests</h3>
-              <span className="text-sm text-teal-600">Pending approvals</span>
-            </div>
-            <div className="space-y-3">
-              {pendingRequests.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/60 p-4"
-                >
-                  <div>
-                    <p className="text-sm text-amber-700 uppercase tracking-wide">{item.type}</p>
-                    <p className="text-teal-800 font-semibold">
-                      {item.data.title || item.data.name || "Untitled request"}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => approveRequest(item.id)}
-                      className="px-4 py-2 rounded-full bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => deleteRequest(item.id)}
-                      className="px-4 py-2 rounded-full bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Sessions Grid */}
         {activeTab === "sessions" && (

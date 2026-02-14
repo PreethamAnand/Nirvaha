@@ -269,8 +269,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col w-full bg-gray-50">
-      {/* Header with Navigation */}
-      <header className="bg-white border-b border-emerald-200 shadow-sm sticky top-0 z-50">
+      {/* Header with Navigation - Fixed at top */}
+      <header className="bg-white border-b border-emerald-200 shadow-sm fixed top-0 left-0 right-0 z-50">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Left: Logo and Title */}
@@ -342,7 +342,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 pt-16 overflow-y-auto">
         <div className="min-h-full p-6 bg-gradient-to-br from-emerald-50 via-white to-green-50">
           <div className="max-w-7xl mx-auto">{children || <Outlet />}</div>
         </div>

@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AdminTable } from "@/admin/components/AdminTable";
 import { ConfirmModal } from "@/admin/components/ConfirmModal";
-import { Search, CheckCircle, Trash2 } from "lucide-react";
+import { Search, CheckCircle, Trash2, RotateCw } from "lucide-react";
 
 const MARKETPLACE_REQUESTS_KEY = "nirvaha_marketplace_requests";
 
@@ -23,13 +23,36 @@ export function MarketplaceManagementPage() {
     type: "approve" | "delete";
     request: MarketplaceRequest;
   } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const normalizeRequest = (item: any): MarketplaceRequest | null => {
+    if (!item || typeof item !== "object") return null;
+    const type = item.type === "session" || item.type === "retreat" || item.type === "product"
+      ? item.type
+      : "session";
+    const status = item.status === "approved" ? "approved" : "pending";
+    const createdAt = typeof item.createdAt === "number" ? item.createdAt : Date.now();
+    const id = typeof item.id === "string" ? item.id : `${Date.now()}-${Math.random()}`;
+    const data = item.data && typeof item.data === "object" ? item.data : {};
+
+    return { id, type, status, data, createdAt };
+  };
 
   const loadRequests = () => {
     try {
+      console.log('📥 [ADMIN] Loading requests from localStorage...');
       const raw = localStorage.getItem(MARKETPLACE_REQUESTS_KEY);
+      console.log('📦 [ADMIN] Raw value size:', raw ? `${raw.length} chars` : 'null');
       const parsed = raw ? JSON.parse(raw) : [];
-      setRequests(Array.isArray(parsed) ? parsed : []);
-    } catch {
+      console.log('✅ [ADMIN] Parsed:', Array.isArray(parsed) ? parsed.length : 'not array', 'items');
+      const normalized = Array.isArray(parsed)
+        ? parsed.map(normalizeRequest).filter(Boolean) as MarketplaceRequest[]
+        : [];
+      console.log('📊 [ADMIN] Normalized:', normalized.length, 'requests');
+      console.log('📋 [ADMIN] Data:', JSON.stringify(normalized.slice(0, 2), null, 2));
+      setRequests(normalized);
+    } catch (error) {
+      console.error('Failed to load marketplace requests:', error);
       setRequests([]);
     }
   };
@@ -38,6 +61,8 @@ export function MarketplaceManagementPage() {
     setRequests(next);
     try {
       localStorage.setItem(MARKETPLACE_REQUESTS_KEY, JSON.stringify(next));
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('marketplace-updated'));
     } catch {
       // Ignore storage errors
     }
@@ -45,13 +70,57 @@ export function MarketplaceManagementPage() {
 
   useEffect(() => {
     loadRequests();
+    
+    // Set up polling to check for new requests
+    const interval = setInterval(() => {
+      loadRequests();
+    }, 1000);
+    
+    // Listen for storage changes from other tabs
     const handleStorage = () => loadRequests();
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    
+    // Listen for custom event from same tab
+    const handleCustomUpdate = () => loadRequests();
+    window.addEventListener("marketplace-updated", handleCustomUpdate);
+
+    // Listen for BroadcastChannel updates from other tabs/windows
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel("nirvaha-marketplace");
+      channel.onmessage = () => loadRequests();
+    } catch {
+      channel = null;
+    }
+    
+    // Reload when page becomes visible (tab switching)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadRequests();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Reload on focus/pageshow to avoid stale data
+    const handleFocus = () => loadRequests();
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("pageshow", handleFocus);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("marketplace-updated", handleCustomUpdate);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("pageshow", handleFocus);
+      if (channel) {
+        channel.close();
+      }
+    };
   }, []);
 
   const handleApprove = (request: MarketplaceRequest) => {
-    const next: MarketplaceRequest[] = requests.map((item) =>
+    const next: MarketplaceRequest[] = requests.map((item)=>
       item.id === request.id ? { ...item, status: "approved" as const } : item
     );
     saveRequests(next);
@@ -64,10 +133,12 @@ export function MarketplaceManagementPage() {
 
   const filteredRequests = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return requests.filter((item) => {
+    const filtered = requests.filter((item) => {
       const title = item.data?.title || item.data?.name || "";
-      return title.toLowerCase().includes(query) || item.type.includes(query);
+      const type = typeof item.type === "string" ? item.type : "";
+      return title.toLowerCase().includes(query) || type.includes(query);
     });
+    return filtered;
   }, [requests, searchQuery]);
 
   const columns = [
@@ -134,11 +205,28 @@ export function MarketplaceManagementPage() {
     },
   ];
 
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    console.log('🔄 [ADMIN] Manual refresh triggered by user');
+    loadRequests();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-black mb-2">Marketplace Requests</h1>
-        <p className="text-gray-700">Review and approve marketplace submissions</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-black mb-2">Marketplace Requests</h1>
+          <p className="text-gray-700">Review and approve marketplace submissions</p>
+        </div>
+        <Button
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          className="bg-emerald-500 hover:bg-emerald-600 text-white flex items-center gap-2"
+        >
+          <RotateCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <Card className="bg-white border-emerald-200 p-6">
